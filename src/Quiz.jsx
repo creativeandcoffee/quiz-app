@@ -1,314 +1,280 @@
-// src/Quiz.jsx
-import { useMemo, useState } from 'react';
+import React, { useState } from "react";
 import {
   baseRecommendations,
   jobFamilies,
   detailedFedipMapping,
-} from './quizData.jsx';
+  familyToBodyMapping,
+  subFamilyToBodyMapping,
+  roleToBodyMapping,
+} from "./quizData.jsx";
 
-/**
- * Grouping helpers
- */
-const LEVELS = [
-  'Trainee',
-  'Apprentice',
-  'Associate',
-  'Junior',
-  '', // base/no prefix
-  'Qualified',
-  'Senior',
-  'Lead',
-  'Principal',
-  'Manager', // generic "X Manager" (when it's the base)
-  'Head of',
-  'Assistant Director of',
-  'Director of',
-  'Chief',
-  'CXIO',
-];
-
-const LEVEL_PREFIXES = [
-  'Trainee',
-  'Apprentice',
-  'Associate',
-  'Junior',
-  'Senior',
-  'Lead',
-  'Principal',
-  'Head of',
-  'Assistant Director of',
-  'Director of',
-  'Chief',
-  'Qualified',
-  'CXIO',
-];
-
-// return { level, base }
-function parseRole(roleRaw) {
-  const role = roleRaw.trim().replace(/\s+-\s*Management$/i, ''); // drop " - Management"
-  // parenthetical specialization stays as part of base (e.g., "(Operations)")
-  for (const p of LEVEL_PREFIXES) {
-    const re = new RegExp(`^${p}\\b\\s*`, 'i');
-    if (re.test(role)) {
-      const base = role.replace(re, '').trim();
-      return { level: p, base };
-    }
-  }
-  // If role contains "Head of X", etc. but didn’t match (case/casing), normalize once more
-  const headMatch = role.match(/^(Head of|Assistant Director of|Director of)\s+(.*)$/i);
-  if (headMatch) {
-    return { level: headMatch[1], base: headMatch[2] };
-  }
-  const chiefMatch = role.match(/^Chief\s+(.*)$/i);
-  if (chiefMatch) {
-    return { level: 'Chief', base: `Chief ${chiefMatch[1]}` }; // keep "Chief ..." as its own base
-  }
-  // For "X Manager" treat as base with implicit "Manager" level only if there are prefixed variants too
-  return { level: '', base: role };
-}
-
-function levelRank(level) {
-  const idx = LEVELS.indexOf(level);
-  return idx === -1 ? LEVELS.indexOf('') : idx;
-}
-
-// Given an array OR already-nested object, return nested object { base: [roles...] }
-function toNested(value) {
-  if (Array.isArray(value)) {
-    const groups = {};
-    for (const r of value) {
-      const { level, base } = parseRole(r);
-      if (!groups[base]) groups[base] = new Set();
-      groups[base].add(r);
-    }
-    // sort each bucket by level rank then alphabetically
-    const nested = {};
-    Object.keys(groups)
-      .sort((a, b) => a.localeCompare(b))
-      .forEach((base) => {
-        const sorted = Array.from(groups[base]).sort((a, b) => {
-          const la = parseRole(a).level;
-          const lb = parseRole(b).level;
-          const ra = levelRank(la);
-          const rb = levelRank(lb);
-          if (ra !== rb) return ra - rb;
-          return a.localeCompare(b);
-        });
-        nested[base] = sorted;
-      });
-    return nested;
-  }
-  // already nested (object of arrays) — ensure sorted
-  const nested = {};
-  Object.keys(value)
-    .sort((a, b) => a.localeCompare(b))
-    .forEach((k) => {
-      const arr = value[k];
-      nested[k] = Array.isArray(arr)
-        ? [...arr].sort((a, b) => {
-            const la = parseRole(a).level;
-            const lb = parseRole(b).level;
-            const ra = levelRank(la);
-            const rb = levelRank(lb);
-            if (ra !== rb) return ra - rb;
-            return a.localeCompare(b);
-          })
-        : arr;
-    });
-  return nested;
-}
-
-export default function Quiz() {
-  const [step, setStep] = useState(0);           // 0: base, 1: family, 2: subcat (if any), 3: role
-  const [answers, setAnswers] = useState({});    // {0,1,2,3}
+const Quiz = () => {
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
+  
+  // --- NEW: State for the email form ---
+  const [email, setEmail] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Build a fully nested structure for ALL families
-  const nestedFamilies = useMemo(() => {
-    const out = {};
-    for (const family of Object.keys(jobFamilies)) {
-      out[family] = toNested(jobFamilies[family]);
-    }
-    return out;
-  }, []);
 
-  const resetDownstream = (upToStep, nextAnswers) => {
-    for (let i = upToStep + 1; i <= 3; i++) delete nextAnswers[i];
-  };
-
-  const calculateResult = (src = answers) => {
-    const baseAnswer = src[0];
-    // role can be at step 2 (flat families converted to nested still have a role step)
-    const roleAnswer = src[3] ?? src[2];
-
-    const professionalBody =
-      baseRecommendations[baseAnswer] || 'FEDIP - General Membership';
-
-    const fedipLevel =
-      detailedFedipMapping[roleAnswer] || 'FEDIP Level not determined';
-
-    setResult({ professionalBody, fedipLevel });
-  };
-
-  const handleSelect = (answer) => {
-    const next = { ...answers, [step]: answer };
-
-    // Clear downstream if earlier choice changed
-    resetDownstream(step, next);
-    setAnswers(next);
-
-    // Decide next step
+  const handleAnswer = (answer) => {
+    const newAnswers = { ...answers, [step]: answer };
     if (step === 0) {
-      setStep(1);
-      return;
+      delete newAnswers[1];
+      delete newAnswers[2];
+      delete newAnswers[3];
     }
     if (step === 1) {
-      // If this family has multiple subcategories, go to subcategory step (2)
-      const family = next[1];
-      const subs = Object.keys(nestedFamilies[family] || {});
-      if (subs.length > 1) {
-        setStep(2);
-      } else {
-        // Only one subcategory: auto-pick it and jump to role step
-        const onlySub = subs[0];
-        next[2] = onlySub;
-        setAnswers({ ...next });
-        setStep(3);
-      }
-      return;
+      delete newAnswers[2];
+      delete newAnswers[3];
     }
     if (step === 2) {
-      // Chose subcategory → go choose specific role
-      setStep(3);
-      return;
+      delete newAnswers[3];
     }
-    if (step === 3) {
-      // Final selection → compute result
-      calculateResult(next);
-    }
-  };
 
-  const handleNext = () => {
-    // Guard: must select something
-    if (answers[step] == null) {
-      alert('Please select an option first.');
-      return;
+    if (step === 1) {
+      const familyName = answer;
+      const subFamilyNames = Object.keys(jobFamilies[familyName]);
+      if (subFamilyNames.length === 1 && subFamilyNames[0] === familyName) {
+        newAnswers[2] = subFamilyNames[0];
+        setAnswers(newAnswers);
+        setStep(3);
+        return;
+      }
     }
+
+    setAnswers(newAnswers);
+
     if (step < 3) {
       setStep(step + 1);
     } else {
-      calculateResult(answers);
+      calculateResult(newAnswers);
     }
   };
-
+  
   const handleBack = () => {
-    if (step > 0) setStep(step - 1);
+    if (step > 0) {
+      setStep(step - 1);
+    }
   };
 
   const handleRestart = () => {
     setStep(0);
     setAnswers({});
     setResult(null);
+    // --- NEW: Reset email form on restart ---
+    setIsSubmitted(false);
+    setEmail("");
+  };
+
+  // --- NEW: Handler for the email form submission ---
+  // In your Quiz.jsx file, update this function
+
+  const handleEmailSubmit = async (e) => {
+    e.preventDefault(); // Prevents the page from reloading
+    
+    try {
+      const response = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to subscribe.');
+      }
+
+      // If successful, show the thank you message
+      setIsSubmitted(true);
+      
+    } catch (error) {
+      // You could add some user-facing error message here
+      console.error(error);
+      alert('Subscription failed. Please try again.');
+    }
+  };
+
+  const calculateResult = (finalAnswers) => {
+    const baseAnswer = finalAnswers[0];
+    const familyAnswer = finalAnswers[1];
+    const subFamilyAnswer = finalAnswers[2];
+    const jobRoleAnswer = finalAnswers[3];
+
+    const recommendations = new Set();
+
+     // Role based override or additions
+    const roleBody = roleToBodyMapping[jobRoleAnswer];
+
+    if (Array.isArray(roleBody)) {
+      roleBody.forEach((b) => recommendations.add(b));
+    } else if (roleBody) {
+      recommendations.add(roleBody);
+    }
+
+    const subFamilySpecificBody = subFamilyToBodyMapping[subFamilyAnswer];
+    if (subFamilySpecificBody) {
+      recommendations.add(subFamilySpecificBody);
+    }
+
+    const familySpecificBody = familyToBodyMapping[familyAnswer];
+    if (familySpecificBody) {
+      recommendations.add(familySpecificBody);
+    }
+
+    const primaryBody = baseRecommendations[baseAnswer];
+    if (primaryBody) {
+      recommendations.add(primaryBody);
+    }
+
+    const fedipLevel =
+      detailedFedipMapping[jobRoleAnswer] || "FEDIP Level not determined";
+
+    if (recommendations.size === 0) {
+      recommendations.add("FEDIP - General Membership");
+    }
+
+    setResult({ professionalBody: Array.from(recommendations), fedipLevel });
   };
 
   const renderQuestion = () => {
-    if (step === 0) {
-      return (
-        <>
-          <h2>What Best Describes You?</h2>
-          <div className="options-container">
-            {Object.keys(baseRecommendations).map((option) => (
-              <button
-                key={option}
-                onClick={() => handleSelect(option)}
-                className={answers[0] === option ? 'selected' : ''}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        </>
-      );
-    }
+    switch (step) {
+      case 0:
+        return (
+          <>
+            <h2>What Best Describes You?</h2>
+            <div className="options-container">
+              {Object.keys(baseRecommendations).map((option) => (
+                <button
+                  key={option}
+                  onClick={() => handleAnswer(option)}
+                  className={answers[0] === option ? "selected" : ""}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </>
+        );
+      case 1:
+        return (
+          <>
+            <h2>Which job family are you in?</h2>
+            <div className="options-container">
+              {Object.keys(jobFamilies).map((family) => (
+                <button
+                  key={family}
+                  onClick={() => handleAnswer(family)}
+                  className={answers[1] === family ? "selected" : ""}
+                >
+                  {family}
+                </button>
+              ))}
+            </div>
+          </>
+        );
+      case 2:
+        const selectedFamily = answers[1];
+        const subFamilies = selectedFamily ? Object.keys(jobFamilies[selectedFamily]) : [];
+        return (
+          <>
+            <h2>Which sub-section are you in?</h2>
+            <div className="options-container">
+              {subFamilies.map((subFamily) => (
+                <button
+                  key={subFamily}
+                  onClick={() => handleAnswer(subFamily)}
+                  className={answers[2] === subFamily ? "selected" : ""}
+                >
+                  {subFamily}
+                </button>
+              ))}
+            </div>
+          </>
+        );
+      case 3:
+        const family = answers[1];
+        const subFamily = answers[2];
+        let roles = (family && subFamily) ? (jobFamilies[family][subFamily] || []) : [];
 
-    if (step === 1) {
-      return (
-        <>
-          <h2>Which job family are you in?</h2>
-          <div className="options-container">
-            {Object.keys(nestedFamilies).map((family) => (
-              <button
-                key={family}
-                onClick={() => handleSelect(family)}
-                className={answers[1] === family ? 'selected' : ''}
-              >
-                {family}
-              </button>
-            ))}
-          </div>
-        </>
-      );
+        const seniorityOrder = {
+          "FEDIP Associate Practitioner": 1,
+          "FEDIP Practitioner": 2,
+          "FEDIP Senior Practitioner": 3,
+          "FEDIP Advanced Practitioner": 4,
+          "FEDIP Leading Practitioner": 5,
+          "None": 0
+        };
+        roles.sort((a, b) => {
+          const levelA = detailedFedipMapping[a] || "None";
+          const levelB = detailedFedipMapping[b] || "None";
+          const seniorityA = seniorityOrder[levelA] || 0;
+          const seniorityB = seniorityOrder[levelB] || 0;
+          return seniorityA - seniorityB;
+        });
+        return (
+          <>
+            <h2>What is your current job role?</h2>
+            <div className="options-container">
+              {roles.map((role) => (
+                  <button
+                    key={role}
+                    onClick={() => handleAnswer(role)}
+                    className={answers[3] === role ? "selected" : ""}
+                  >
+                    {role}
+                  </button>
+                ))}
+            </div>
+          </>
+        );
+      default:
+        return null;
     }
-
-    if (step === 2) {
-      const family = answers[1];
-      const subcats = Object.keys(nestedFamilies[family] || {});
-      return (
-        <>
-          <h2>Select your role category</h2>
-          <div className="options-container">
-            {subcats.map((sub) => (
-              <button
-                key={sub}
-                onClick={() => handleSelect(sub)}
-                className={answers[2] === sub ? 'selected' : ''}
-              >
-                {sub}
-              </button>
-            ))}
-          </div>
-        </>
-      );
-    }
-
-    if (step === 3) {
-      const family = answers[1];
-      const sub = answers[2];
-      const roles = (nestedFamilies[family] && nestedFamilies[family][sub]) || [];
-      return (
-        <>
-          <h2>Select your specific role</h2>
-          <div className="options-container">
-            {roles.map((role) => (
-              <button
-                key={role}
-                onClick={() => handleSelect(role)}
-                className={answers[3] === role ? 'selected' : ''}
-              >
-                {role}
-              </button>
-            ))}
-          </div>
-        </>
-      );
-    }
-
-    return null;
   };
-
+  
   return (
     <div className="quiz-container">
       {result ? (
         <div className="result-container">
           <h2>Your Recommendations</h2>
           <div className="result-item">
-            <strong>Professional Body:</strong>
-            <p>{result.professionalBody}</p>
+            <strong>Professional Body / Bodies:</strong>
+            <p>{result.professionalBody.join(' or ')}</p>
           </div>
           <div className="result-item">
             <strong>FEDIP Level:</strong>
             <p>{result.fedipLevel}</p>
           </div>
+          
+          {/* --- Email Collection Form --- */}
+          <div className="email-form-container">
+            {isSubmitted ? (
+              <p className="thank-you-message">Thank you! Your brochure will be sent shortly.</p>
+            ) : (
+              <form onSubmit={handleEmailSubmit}>
+                <p>To receive a brochure with more information, please enter your email address:</p>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your.email@example.com"
+                  required
+                />
+                <button type="submit" className="nav-button submit-button">Send Brochure</button>
+              </form>
+            )}
+          </div>
+
+          <div className="contact-note">
+            <p className="contact-message">
+              If you have any questions, or would like more personalised recommedations, please contact us at{" "}
+              <a href="mailto:info@fedip.org">info@fedip.org</a>.
+            </p>
+          </div>
+
           <button onClick={handleRestart} className="nav-button">
             Start Again
           </button>
@@ -322,12 +288,11 @@ export default function Quiz() {
                 Back
               </button>
             )}
-            <button onClick={handleNext} className="nav-button">
-              {step < 3 ? 'Next' : 'See Result'}
-            </button>
           </div>
         </div>
       )}
     </div>
   );
-}
+};
+
+export default Quiz;
