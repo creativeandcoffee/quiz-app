@@ -80,7 +80,7 @@ export const jobFamilies = {
     "Data Engineering": ["Head of Analytics Engineering", "Lead Analytics Engineer", "Principal Data Engineer", "Senior Analytics Engineer", "Senior Data Engineer", "Analytics Engineer", "Data Engineer", "Associate Data Engineer"],
     "Data Governance": ["Lead Data Governance Manager", "Senior Data Governance Manager", "Data Governance Manager"],
     "Data Science": ["Lead Data Scientist", "Lead Machine Learning Engineer", "Principal Data Scientist", "Senior Data Scientist", "Senior Machine Learning Engineer", "Data Scientist"],
-    "Data ethics": ["Data Ethics Lead", "Head of Data Ethics"]
+    "Data Ethics": ["Data Ethics Lead", "Head of Data Ethics"]
   },
 "Digital Leadership Roles": {
   "Digital Leadership Roles": [
