@@ -1,90 +1,197 @@
-.App {
-  text-align: center;
-  font-family: sans-serif;
-  max-width: 800px;
-  margin: 20px auto;
+/* --- General Setup & Typography --- */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  background-color: #f0f2f5;
+  color: #000; /* Changed to black */
+  margin: 0;
   padding: 20px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.quiz-container {
-  padding: 20px;
-}
-
-.options-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin-top: 20px;
 }
 
+h1 {
+  text-align: center;
+  color: #000; /* Changed to black */
+}
+
+h2 {
+  font-size: 1.5rem;
+  margin-top: 0;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+/* --- Main Quiz Container --- */
+.quiz-container {
+  max-width: 800px;
+  margin: 40px auto;
+  background-color: #fff;
+  padding: 2rem 3rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Options Container (for the buttons) --- */
+.options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+/* --- Option Button Styling --- */
 .options-container button {
+  display: block;
   width: 100%;
-  padding: 12px 15px;
-  background: #f0f0f0;
-  border: 2px solid transparent;
-  border-radius: 5px;
-  cursor: pointer;
+  padding: 1rem;
+  font-size: 1rem;
   text-align: left;
-  font-size: 16px;
-  transition: background-color 0.2s, border-color 0.2s;
+  background-color: #fff;
+  color: #000;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
 }
 
 .options-container button:hover {
-  background-color: #e0e0e0;
+  border-color: #e4d12b; /* Use brand yellow for hover */
+  background-color: #f8f9fa;
+  transform: translateY(-2px);
 }
 
 .options-container button.selected {
-  background-color: #d4edda;
-  border-color: #4CAF50;
-  font-weight: bold;
+  background-color: #e4d12b; /* Brand yellow background */
+  color: #000;             /* Black text for accessibility */
+  border-color: #e4d12b;   /* Brand yellow border */
+  box-shadow: 0 4px 8px rgba(228, 209, 43, 0.25);
 }
 
-.navigation-buttons {
-  margin-top: 30px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.options-container button strong {
+  display: block;
+  font-size: 1.1rem;
 }
+
+.options-container button p {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.options-container button.selected p {
+  color: #333; /* Darker grey for readability on yellow */
+}
+
+
+/* --- Navigation Buttons (Back & Start Again) --- */
+.navigation-buttons {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+  border-top: 1px solid #eee;
+  padding-top: 1.5rem;
+}
+
+
 
 .nav-button {
-  padding: 10px 20px;
-  background: #007BFF;
-  color: white;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: bold;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
+  transition: background-color 0.2s ease;
+  margin: 5px;
 }
 
-.nav-button:hover {
-  background: #0056b3;
-}
-
-.back-button {
+.nav-button.back-button {
   background-color: #6c757d;
+  color: white;
 }
 
-.back-button:hover {
+.nav-button.back-button:hover {
   background-color: #5a6268;
 }
 
+/* --- Result Screen --- */
 .result-container {
-  text-align: left;
+  text-align: center;
 }
 
 .result-item {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
   background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 5px;
-  padding: 15px;
-  margin-bottom: 15px;
+  border-radius: 8px;
+}
+
+.result-item strong {
+  font-size: 1.2rem;
+  color: #000; /* Changed to black */
 }
 
 .result-item p {
-  margin: 5px 0 0;
-  font-size: 1.1em;
+  font-size: 1.1rem;
+  color: #495057;
+  margin: 0.5rem 0 0 0;
+}
+
+.result-container .nav-button {
+  background-color: #e4d12b; /* Brand yellow */
+  color: #000;             /* Black text for accessibility */
+}
+
+.result-container .nav-button:hover {
+  background-color: #d3c025; /* Slightly darker yellow */
+}
+
+/* --- Email Form Container (on Result Screen) --- */
+.email-form-container {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border-top: 1px solid #eee;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.email-form-container form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.email-form-container p {
+  margin: 0 0 0.5rem 0;
+  text-align: center;
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.email-form-container input[type="email"] {
+  padding: 0.75rem;
+  font-size: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+}
+
+.nav-button.submit-button {
+  background-color: #e4d12b; /* Brand yellow */
+  color: #000;             /* Black text for accessibility */
+}
+
+.nav-button.submit-button:hover {
+  background-color: #d3c025; /* Slightly darker yellow */
+}
+
+.thank-you-message {
+  font-weight: bold;
+  color: #28a745;
+  text-align: center;
+  font-size: 1.1rem;
 }
